@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Получение полимеров в 3D</title>
+<style>
+:root{--bg:#f6f4ee;--fg:#12202e;--card:#ffffff;--mut:#5d6670;--acc:#0e7c86;--line:#dcd8cc;--cv:#e6eef0;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a24;--fg:#f1efe8;--card:#162636;--mut:#a9b7c4;--acc:#5fc3cb;--line:#25384a;--cv:#0a131b}}
+:root[data-theme="dark"]{--bg:#0e1a24;--fg:#f1efe8;--card:#162636;--mut:#a9b7c4;--acc:#5fc3cb;--line:#25384a;--cv:#0a131b}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:17px/1.5 Inter,Arial,sans-serif}
+main{display:grid;grid-template-columns:1fr 400px;height:100%}
+#cv{width:100%;height:100%;display:block;background:var(--cv);touch-action:pan-y}
+.cw{position:relative;min-height:0}
+.hint{position:absolute;left:12px;bottom:10px;font-size:13px;color:var(--mut)}
+aside{padding:20px 22px;overflow:auto;display:flex;flex-direction:column;gap:14px;border-left:1px solid var(--line)}
+.tabs{display:flex;gap:8px}
+.tabs button{flex:1;min-height:44px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:10px;font:600 15px Inter,Arial,sans-serif;cursor:pointer}
+.tabs button.on{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+.k{font-size:14px;color:var(--mut);font-weight:600}
+h2{margin:0;font-size:26px;line-height:1.2}
+.f{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font:600 16px Inter,Arial,sans-serif;color:var(--acc)}
+p{margin:0}
+.dots{display:flex;gap:6px}.dots i{height:6px;flex:1;border-radius:3px;background:var(--line)}.dots i.on{background:var(--acc)}
+.nav{display:flex;gap:8px;margin-top:auto}
+.nav button{flex:1;min-height:48px;border:0;border-radius:10px;background:var(--acc);color:var(--bg);font:600 16px Inter,Arial,sans-serif;cursor:pointer}
+.nav button.s{background:var(--card);color:var(--fg);border:1px solid var(--line)}
+@media (max-width:800px){main{grid-template-columns:1fr;grid-template-rows:42% 1fr}aside{border-left:0;border-top:1px solid var(--line);padding:16px}h2{font-size:22px}}
+</style></head><body>
+<main>
+<div class="cw"><canvas id="cv"></canvas><div class="hint">Потяните, чтобы повернуть</div></div>
+<aside>
+<div class="tabs"><button id="t0">Полимеризация</button><button id="t1">Поликонденсация</button></div>
+<div class="k" id="k"></div><h2 id="h"></h2><p id="p"></p><div class="f" id="f"></div>
+<div class="dots" id="d"></div>
+<div class="nav"><button class="s" id="pv">←</button><button class="s" id="au">▶ Авто</button><button id="nx">Далее →</button></div>
+</aside></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const T=[[
+["Мономеры","Исходное вещество — мономер, например этилен CH₂=CH₂. В каждой молекуле есть двойная связь C=C, она станет звеном цепи. Мономеры хаотично движутся в реакторе. Сюда добавляют инициатор: вещество, которое легко распадается на радикалы (оранжевая пара).","CH₂=CH₂"],
+["Инициирование","При нагреве или под УФ слабая связь инициатора рвётся, и образуются два радикала R•. У радикала есть неспаренный электрон, поэтому он очень активен. Он атакует двойную связь мономера: одна из двух связей раскрывается, и мономер присоединяется к радикалу.","R• + CH₂=CH₂ → R–CH₂–CH₂•"],
+["Рост цепи","Активный центр на конце цепи присоединяет молекулы мономера одну за другой: каждый раз двойная связь превращается в одинарную, а центр переходит на новый конец. Один акт занимает доли миллисекунды, поэтому цепь из тысяч звеньев вырастает за секунды.","~CH₂• + CH₂=CH₂ → ~CH₂–CH₂–CH₂•"],
+["Обрыв цепи","Рост прекращается, когда активный центр исчезает. Здесь он встретил второй радикал и соединился с ним (рекомбинация). Возможен и обрыв диспропорционированием или передача цепи на растворитель. Часть мономера остаётся непрореагировавшей.","~CH₂• + •R → ~CH₂–R"],
+["Готовая макромолекула","Цепь не вытянута, а сворачивается в клубок. У каждой макромолекулы своя длина, поэтому говорят о средней молекулярной массе. Остатки мономера удаляют, расплав выдавливают и режут на гранулы полиэтилена.","n CH₂=CH₂ → (–CH₂–CH₂–)n"]],[
+["Мономеры","Нужны мономеры минимум с двумя функциональными группами на концах, на модели это белые шарики. Берут два сорта, например кислоту (бирюзовые) и спирт или амин (оранжевые). Молекулы перемешаны, и реагировать могут любые две.","HOOC–R–COOH + HO–R'–OH"],
+["Первые связи","Две группы встречаются и реагируют, между мономерами возникает связь. Из групп выделяется молекула воды (голубые шарики). Получаются димеры: молекулы пока короткие, а свободного мономера уже почти не осталось.","–COOH + HO– → –CO–O– + H₂O"],
+["Рост из олигомеров","Дальше реагируют не только мономеры, но и димер с димером, тример с мономером. Рост ступенчатый, цепь удлиняется постепенно. После каждого акта выделяется вода, её нужно уводить, иначе реакция пойдёт назад.","олигомер + олигомер → длиннее + H₂O"],
+["Длинная цепь","Чтобы получить большую молекулярную массу, конверсию групп доводят выше 99 % и строго держат соотношение мономеров 1:1. Воду отгоняют вакуумом при 260–280 °C. В итоге образуется длинная цепь полиэфира, например ПЭТ.","Xn = 1 / (1 – p)"]]];
+const $=i=>document.getElementById(i),cv=$('cv');
+const R=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true}),S=new THREE.Scene(),C=new THREE.PerspectiveCamera(45,1,.1,100);
+S.add(new THREE.AmbientLight(0xffffff,.75));const dl=new THREE.DirectionalLight(0xffffff,.9);dl.position.set(5,8,10);S.add(dl);
+const G=new THREE.Group();S.add(G);
+const COL={t:0x2aa7b0,o:0xe07a2f,w:0x6fb8ff,g:0xeeeeee},V=(x,y,z)=>new THREE.Vector3(x,y,z),rnd=(a,b)=>a+Math.random()*(b-a);
+const sg=new THREE.SphereGeometry(1,24,16),cg=new THREE.CylinderGeometry(1,1,1,8),Y=V(0,1,0);
+let atoms=[],bonds=[],timers=[],inst=false,mode=0,step=0,A,B,auto=null,rotY=0,drag=null;
+const later=(ms,f)=>inst?f():timers.push(setTimeout(f,ms));
+function atom(c,r,p,ph=0){const m=new THREE.Mesh(sg,new THREE.MeshStandardMaterial({color:c,roughness:.35,metalness:.1}));m.scale.setScalar(r);m.position.copy(p);G.add(m);const a={m,s:r,t:p.clone(),home:p.clone(),ph,free:false,tc:new THREE.Color(c)};atoms.push(a);return a}
+function bond(a,b,dbl){const mk=()=>{const m=new THREE.Mesh(cg,new THREE.MeshStandardMaterial({color:0x9fb0b8}));G.add(m);return m};const o={a,b,dbl,vis:true,m1:mk(),m2:mk()};bonds.push(o);return o}
+function cyl(m,p,q,r){const d=V(0,0,0).subVectors(q,p),L=d.length();m.position.copy(p).addScaledVector(d,.5);m.scale.set(r,Math.max(L,.001),r);m.quaternion.setFromUnitVectors(Y,d.normalize())}
+function clear(){timers.forEach(clearTimeout);timers=[];atoms.forEach(a=>G.remove(a.m));bonds.forEach(b=>{G.remove(b.m1);G.remove(b.m2)});atoms=[];bonds=[]}
+// --- scene A
+const slot=k=>V(-5.2+k*.6,Math.sin(k*1.2)*.35,Math.cos(k*1.2)*.35);
+function setupA(){A={m:[],ch:[],end:null};for(let i=0;i<10;i++){const h=V(rnd(-4.5,4.5),(i%2?1:-1)*rnd(2,4),rnd(-2,2)),ph=rnd(0,6),a1=atom(COL.t,.34,h.clone().add(V(-.4,0,0)),ph),a2=atom(COL.t,.34,h.clone().add(V(.4,0,0)),ph);a1.free=a2.free=true;A.m.push({a1,a2,b:bond(a1,a2,true)})}
+A.i1=atom(COL.o,.4,V(-6,3.4,0),9);A.i2=atom(COL.o,.4,V(-5.2,3.4,0),9);A.i1.free=A.i2.free=true;A.ib=bond(A.i1,A.i2,false)}
+function att(n){const m=A.m[n];m.a1.free=m.a2.free=false;m.a1.t=slot(2*n+1);m.a2.t=slot(2*n+2);m.b.dbl=false;bond(A.end,m.a1,false);A.end=m.a2;A.ch.push(m.a1,m.a2)}
+const SA=[()=>{},()=>{A.ib.vis=false;A.i1.free=A.i2.free=false;A.i1.t=slot(0);A.i2.t=V(-6.4,3.8,0);A.end=A.i1;A.ch=[A.i1];later(1100,()=>att(0))},
+()=>{for(let n=1;n<8;n++)later(n*750,()=>att(n))},
+()=>{A.i2.t=slot(17);later(1000,()=>{bond(A.end,A.i2,false);A.ch.push(A.i2)})},
+()=>{A.ch.forEach((a,k)=>a.t=V(Math.cos(k*.6)*1.1,(k-9)*.3,Math.sin(k*.6)*1.1))}];
+// --- scene B
+function setupB(){B={m:[]};for(let i=0;i<12;i++){const c=i%2?COL.o:COL.t,h=V(rnd(-5.5,5.5),rnd(-3.5,3.5),rnd(-2,2)),ph=rnd(0,6),co=atom(c,.4,h,ph),gl=atom(COL.g,.2,h.clone().add(V(-.62,0,0)),ph),gr=atom(COL.g,.2,h.clone().add(V(.62,0,0)),ph);[co,gl,gr].forEach(a=>a.free=true);B.m.push({co,gl,gr,bl:bond(co,gl,false),br:bond(co,gr,false),L:false,R:false})}}
+function water(a,bd){a.free=false;a.tc.set(COL.w);a.s=.24;bd.vis=false;a.t=a.m.position.clone().add(V(rnd(-1,1),rnd(-1,1),rnd(-.5,.5)).normalize().multiplyScalar(8));later(1600,()=>{a.s=0})}
+function lay(gr,pos,sp){gr.forEach((g,gi)=>{const[gx,gy]=pos(gi);g.forEach((i,k)=>{const m=B.m[i],c=V(gx+(k-(g.length-1)/2)*sp,gy+(k%2?.2:-.2),0);m.co.free=m.gl.free=m.gr.free=false;m.co.t=c;if(!m.L)m.gl.t=c.clone().add(V(-.62,0,0));if(!m.R)m.gr.t=c.clone().add(V(.62,0,0));
+if(k>0){const p=B.m[g[k-1]];if(!p.R){p.R=m.L=true;bond(p.co,m.co,false);water(p.gr,p.br);water(m.gl,m.bl)}}})})}
+const SB=[()=>{},()=>lay([[0,1],[2,3],[4,5],[6,7],[8,9],[10,11]],i=>[i%2?3.4:-3.4,(Math.floor(i/2)-1)*2.4],1.5),
+()=>lay([[0,1,2,3],[4,5,6,7],[8,9,10,11]],i=>[0,(i-1)*2.6],1.5),()=>lay([[0,1,2,3,4,5,6,7,8,9,10,11]],()=>[0,0],1.05)];
+// --- control
+function go(m,n){const f=m==mode&&n==step+1;if(!f){clear();mode=m;inst=true;(m?setupB:setupA)();const S_=m?SB:SA;for(let i=0;i<n;i++)S_[i]();atoms.forEach(a=>{a.m.position.copy(a.t);a.m.scale.setScalar(a.s);a.m.material.color.copy(a.tc)});inst=false}
+step=n;(m?SB:SA)[n]();ui()}
+function ui(){const d=T[mode][step];$('k').textContent='Шаг '+(step+1)+' из '+T[mode].length;$('h').textContent=d[0];$('p').textContent=d[1];$('f').textContent=d[2];$('d').innerHTML=T[mode].map((_,i)=>'<i class="'+(i<=step?'on':'')+'"></i>').join('');$('t0').className=mode?'':'on';$('t1').className=mode?'on':'';$('nx').textContent=step==T[mode].length-1?'Сначала':'Далее →'}
+const nxt=()=>step<T[mode].length-1?go(mode,step+1):go(mode,0);
+$('nx').onclick=()=>{stop();nxt()};$('pv').onclick=()=>{stop();go(mode,Math.max(0,step-1))};
+$('t0').onclick=()=>{stop();go(0,0)};$('t1').onclick=()=>{stop();go(1,0)};
+function stop(){if(auto){clearInterval(auto);auto=null;$('au').textContent='▶ Авто'}}
+$('au').onclick=()=>{if(auto)return stop();$('au').textContent='❚❚ Пауза';auto=setInterval(()=>{step<T[mode].length-1?go(mode,step+1):stop()},7000)};
+cv.addEventListener('pointerdown',e=>{drag=e.clientX;cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',e=>{if(drag!==null){rotY+=(e.clientX-drag)*.01;drag=e.clientX}});
+cv.addEventListener('pointerup',()=>drag=null);
+function size(){const w=cv.clientWidth,h=cv.clientHeight;R.setSize(w,h,false);R.setPixelRatio(Math.min(devicePixelRatio,2));C.aspect=w/h;C.position.z=w/h<1.2?21:14;C.updateProjectionMatrix()}
+addEventListener('resize',size);
+const ck=new THREE.Clock();
+function loop(){requestAnimationFrame(loop);const dt=Math.min(ck.getDelta(),.05),t=ck.elapsedTime,k=1-Math.exp(-dt*3);
+atoms.forEach(a=>{if(a.free){const q=a.home;a.t.set(q.x+Math.sin(t*.7+a.ph)*.45,q.y+Math.cos(t*.9+a.ph*1.3)*.45,q.z+Math.sin(t*.5+a.ph*2)*.45)}
+a.m.position.lerp(a.t,k);a.m.scale.setScalar(a.m.scale.x+(a.s-a.m.scale.x)*k);a.m.material.color.lerp(a.tc,k)});
+bonds.forEach(o=>{const p=o.a.m.position,q=o.b.m.position,v=o.vis&&o.a.m.scale.x>.05&&o.b.m.scale.x>.05;o.m1.visible=v;o.m2.visible=v&&o.dbl;if(!v)return;
+if(o.dbl){const d=V(0,0,0).subVectors(q,p),f=V(0,0,0).crossVectors(d,V(0,0,1)).normalize().multiplyScalar(.1);cyl(o.m1,p.clone().add(f),q.clone().add(f),.05);cyl(o.m2,p.clone().sub(f),q.clone().sub(f),.05)}else cyl(o.m1,p,q,.07)});
+G.rotation.y=rotY+Math.sin(t*.3)*.3;R.render(S,C)}
+size();go(0,0);loop();
+</script></body></html>
